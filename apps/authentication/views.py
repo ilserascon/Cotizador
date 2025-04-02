@@ -1,0 +1,235 @@
+# -*- encoding: utf-8 -*-
+"""
+Copyright (c) 2019 - present AppSeed.us
+"""
+
+# Create your views here.
+from django.shortcuts import render, redirect
+from django.contrib.auth import authenticate, login
+from .forms import LoginForm
+from django.views.decorators.csrf import csrf_exempt
+from .forms import SignUpForm
+from utils.server_form import FormFieldsContext
+from django.http import JsonResponse, HttpResponseNotAllowed, QueryDict, multipartparser
+from django.middleware.csrf import get_token
+from .decorators import admin_required
+from .models import AppUser
+from django.db.models import Q
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from .models import UserRole  # Ensure UserRole model is imported
+
+
+def login_view(request):
+    form = LoginForm(request.POST or None)
+
+    msg = None
+
+    if request.method == "POST":
+
+        if form.is_valid():
+            username = form.cleaned_data.get("username")
+            password = form.cleaned_data.get("password")
+            
+            print(f"Usuario: {username}\t| Contraseña: {password}")
+            
+            user = authenticate(username=username, password=password)
+            if user is not None:
+                print(f"User: {user}")
+                login(request, user)
+                return redirect("/")
+            else:
+                msg = 'Credenciales Inválidas'
+        else:
+            msg = 'Error de Validación'
+
+    return render(request, "accounts/login.html", {"form": form, "msg": msg})
+
+
+translated_messages = {
+    "required": "El campo es requerido",
+    "invalid": "El campo no se encuentra en el formato correcto",
+    "unique": "Un usuario con estos datos ya existe",
+    "max_length": "El campo no puede tener mas de {} caracteres",
+    "min_length": "El campo no puede tener menos de {} caracteres",
+    "min_value": "El campo no puede ser menor a {}",
+    "max_value": "El campo no puede ser mayor a {}",
+    "password_too_short": "La contraseña debe tener al menos 8 caracteres"
+}
+
+formatted_messages = ['max_length', 'min_length', 'min_value', 'max_value']
+
+
+@csrf_exempt
+@admin_required
+def create_user(request):
+    formHandler = FormFieldsContext()
+
+    match(request.method):
+        case 'GET':
+            
+            
+            form = SignUpForm()
+            
+            form_json = formHandler.handle_form(form)
+            token = get_token(request)
+            
+            return JsonResponse({"form": form_json, "token": token}, status=200)
+    
+        case 'POST':
+            form = SignUpForm(request.POST)
+            token = get_token(request)
+            
+            if form.is_valid():
+
+                AppUser.objects.create_user(
+                    first_name=form.cleaned_data['first_name'], 
+                    last_name=form.cleaned_data['last_name'], 
+                    email=form.cleaned_data['email'], 
+                    role=form.cleaned_data['role'], 
+                    username=form.cleaned_data['username'], 
+                    password=form.cleaned_data['password1'], 
+                    created_by=request.user, 
+                    updated_by=request.user
+                )
+                
+                return JsonResponse({"status": "success", "message": "Usuario creado correctamente"})
+            else:
+                for field, errors in form.errors.items():
+                    
+                    try:
+                        
+                        new_message = translated_messages[errors.as_data()[0].code]
+                        
+                        if errors.as_data()[0].code in formatted_messages:
+                            new_message = new_message.format(errors.as_data()[0].params['max_length'])
+
+                        
+                        form.errors[field] = [new_message] if new_message else errors
+                        
+                        
+                    except:
+                        pass
+                    
+                return JsonResponse({"status": "error", "data": form.errors}, status=403)
+            
+            
+        
+        case _:
+            return HttpResponseNotAllowed(['GET', 'POST'])
+
+
+@csrf_exempt
+@admin_required
+def edit_user(request, num: int):
+    if not request.method in ['GET', 'PUT']:
+        return HttpResponseNotAllowed(['GET','PUT'])
+
+    try:
+        user = AppUser.undeleted_objects.get(pk=num)
+    except AppUser.DoesNotExist:
+        return JsonResponse({"status": "error", "message": "Usuario no encontrado"}, status=404)
+    
+    if request.method == 'GET':
+        form = SignUpForm(instance=user)
+        form_json = FormFieldsContext().handle_form(form)
+        token = get_token(request)
+        
+        return JsonResponse({"form": form_json, "token": token}, status=200)
+    parser = multipartparser.MultiPartParser(request.META, request, request.upload_handlers)
+    data, files = parser.parse()
+    
+    updated_fields = {}
+
+    # Check for changes in fields
+    print(data)
+    for field in ['first_name', 'last_name', 'email', 'username']:
+        if field in data and data[field] != getattr(user, field):
+            if field in ['email', 'username']:
+                if AppUser.objects.filter(**{field: data[field]}).exclude(pk=user.pk).exists():
+                    return JsonResponse({"status": "error", "message": f"El {field} ya está en uso"}, status=400)
+            updated_fields[field] = data[field]
+
+    # Handle password changes
+    password1 = data.get('password1', '').strip()
+    password2 = data.get('password2', '').strip()
+    if password1 or password2:
+        if password1 != password2:
+            return JsonResponse({"status": "error", "message": "Las contraseñas no coinciden"}, status=400)
+        if len(password1) < 8:
+            return JsonResponse({"status": "error", "message": "La contraseña debe tener al menos 8 caracteres"}, status=400)
+        user.set_password(password1)
+        updated_fields['password'] = '******'
+
+    # Validate and assign role
+    role = data.get('role', '').strip()
+    if role and role != str(user.role.id):  # Compare role ID as string
+        try:
+            new_role = UserRole.objects.get(pk=role)
+            user.role = new_role
+            updated_fields['role'] = new_role.name
+        except UserRole.DoesNotExist:
+            return JsonResponse({"status": "error", "message": "El rol proporcionado no es válido"}, status=400)
+
+    # Update user fields
+    for field, value in updated_fields.items():
+        setattr(user, field, value)
+    user.updated_by = request.user
+    user.save()
+
+    return JsonResponse({"status": "success", "message": "Usuario actualizado correctamente", "updated_fields": updated_fields}, status=200)
+
+@csrf_exempt
+@admin_required
+def get_users(request):
+    
+    match(request.method):
+        case 'GET':
+            users = AppUser.undeleted_objects.all()
+            # --- Search ---
+            search_term = request.GET.get('search', None)
+            if search_term:
+                q_objects = Q()
+                for att in AppUser.public_atts:
+                    q_objects |= Q(**{f'{att}__icontains': search_term})
+                users = users.filter(q_objects)
+
+            # --- Filtering ---
+            for field_name in AppUser.public_atts:
+                filter_value = request.GET.get(field_name)
+                if filter_value:
+                    users = users.filter(**{field_name: filter_value})
+
+            # --- Pagination ---
+            page = request.GET.get('page', 1)
+            page_size = request.GET.get('page_size', 10)  
+            paginator = Paginator(users, page_size)
+
+            try:
+                users_page = paginator.page(page)
+            except PageNotAnInteger:
+                users_page = paginator.page(1)
+            except EmptyPage:
+                users_page = paginator.page(paginator.num_pages)
+
+            users_data = [user.get_pub_dict() for user in users_page]
+            fields_mapping = {AppUser.public_atts[i]: AppUser.displayname_mapping[i] for i in range(len(AppUser.public_atts))}
+            
+            response_data = {
+                "status": "success",
+                "data": users_data,
+                "headers": fields_mapping,
+                "pagination": {
+                    "count": paginator.count,
+                    "num_pages": paginator.num_pages,
+                    "current_page": users_page.number,
+                    "has_next": users_page.has_next(),
+                    "has_previous": users_page.has_previous(),
+                    "next_page_number": users_page.next_page_number() if users_page.has_next() else None,
+                    "previous_page_number": users_page.previous_page_number() if users_page.has_previous() else None,
+                }
+            }
+            
+            return JsonResponse(response_data, status=200)
+            
+        case _:
+            return HttpResponseNotAllowed(['GET'])

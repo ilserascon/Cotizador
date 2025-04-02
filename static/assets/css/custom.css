@@ -1,0 +1,53 @@
+/*!
+
+Custom CSS
+
+*/
+
+main.user {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+
+button.icon-button{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  @media (max-width: 400px) {
+    & > .icon-button-content {
+      display: none;
+    }
+  }
+
+}
+
+.table-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  /* flex-direction: column; */
+
+  & > button {
+    align-self: flex-end;
+    max-width: 8ch;
+  }
+
+  @media (min-width: 400px) {
+    flex-direction: row;
+
+    & > button {
+      max-width: none;
+    }
+
+    &  div:has(input[type="search"]){
+      max-width: 80ch;
+    }
+  }
+}
+
+.page-item{
+  cursor: pointer;
+}

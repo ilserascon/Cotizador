@@ -1,0 +1,13 @@
+    {% load form_renderer %}
+
+    {% csrf_token %}
+    {% for field in form %}
+        <div class="form-floating mb-3">
+            <!-- Manually set the attributes using widget.attrs -->
+        {{ field|add_widget_attributes }}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                <div class="invalid-feedback">
+                </div>
+        </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary">Submit</button>

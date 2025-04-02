@@ -1,0 +1,139 @@
+{% extends "layouts/base.html" %}
+{% load static %}
+
+{% block title %}Usuarios{% endblock title %}
+
+{% block content %}
+<div class="pc-container p-3">
+  <header>
+    <h3>  <strong>Gestión de Usuarios</strong></h3>
+  </header>
+  <main class="user">
+  <div class="table-actions">
+    <div class="input-group">
+      <span class="input-group-text bg-light text-primary pc-micon" id="search-label"><i data-feather="search"></i></span>
+      <input type="search" class="form-control" placeholder="Buscar usuarios" aria-label="Search" aria-describedby="search-label">
+    </div>
+    <button data-bs-toggle="modal" data-bs-target="#create-user-modal" class="btn bg-brand-color-3 text-light icon-button">
+      <span class="icon-button-content text-nowrap">Crear Usuario</span>
+      <span class="pc-micon"><i data-feather="user-plus"></i></span>
+    </button>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="table-container table-responsive">
+        <table id="users-table" class="table"></table>
+        
+      </div>      
+      <div id="users-table-pagination" >
+        
+      </div>
+      </main>
+    </div>
+  </div>
+
+
+  <div class="modal fade" id="create-user-modal" tabindex="-1" aria-labelledby="create-user-modal-label" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="create-user-modal-label">Crear Usuario</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div id="create-user-form-container" class="modal-body">
+
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="edit-user-modal" tabindex="-1" aria-labelledby="edit-user-modal-label" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="edit-user-modal-label">Editar Usuario</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div id="edit-user-form-container" class="modal-body">
+
+            <form class="needs-validation" novalidate="">
+              <div class="form-floating mb-3">
+              <input type="text" class="form-control" maxlength="150" minlength="5" required="" placeholder="Nombre de usuario" name="username">
+              <label>
+              Nombre de usuario</label>
+              <div class="invalid-feedback">
+
+            </div>
+            </div>
+              <div class="form-floating mb-3">
+              <input type="text" class="form-control" maxlength="150" minlength="5" required="" placeholder="Nombre" name="first_name">
+              <label>
+              Nombre</label>
+              <div class="invalid-feedback">
+
+            </div>
+            </div>
+              <div class="form-floating mb-3">
+              <input type="text" class="form-control" maxlength="150" minlength="5" required="" placeholder="Apellido" name="last_name">
+              <label>
+              Apellido</label>
+              <div class="invalid-feedback">
+
+            </div>
+            </div>
+              <div class="form-floating mb-3">
+              <input type="email" class="form-control" maxlength="250" required="" placeholder="Correo electrónico" name="email">
+              <label>
+              Correo electrónico</label>
+              <div class="invalid-feedback">
+
+            </div>
+            </div>
+              <div class="form-floating mb-3">
+              <input type="password" class="form-control" maxlength="150" minlength="5" required="" placeholder="Contraseña" name="password1">
+              <label>
+              Contraseña</label>
+              <div class="invalid-feedback">
+
+            </div>
+            </div>
+              <div class="form-floating mb-3">
+              <input type="password" class="form-control" maxlength="150" minlength="5" required="" placeholder="Confirmar contraseña" name="password2">
+              <label>
+              Confirmar contraseña</label>
+              <div class="invalid-feedback">
+
+            </div>
+            </div>
+              <div class="form-floating mb-3">
+              <select class="form-select" required="" name="role">
+              <option value="1">
+              ADMINISTRADOR</option>
+              <option value="2">
+              USUARIO</option>
+            </select>
+              <label>
+              Tipo</label>
+              <div class="invalid-feedback">
+
+            </div>
+            </div>
+              <button type="submit" class="btn btn-primary">
+              Guardar</button>
+            </form>
+
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+{% block extra_js %}
+  <script src="{% static 'assets/js/api/fetchUsers.js' %}"></script>
+  <script src="{% static 'assets/js/setup/users.js' %}"></script>
+{% endblock extra_js %}
