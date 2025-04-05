@@ -16,8 +16,8 @@ from .decorators import admin_required
 from .models import AppUser
 from django.db.models import Q
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from .models import UserRole  # Ensure UserRole model is imported
-
+from .validators.user import UserUpdate
+from pydantic import ValidationError
 
 def login_view(request):
     form = LoginForm(request.POST or None)
@@ -118,6 +118,7 @@ def create_user(request):
             return HttpResponseNotAllowed(['GET', 'POST'])
 
 
+
 @csrf_exempt
 @admin_required
 def edit_user(request, num: int):
@@ -136,47 +137,115 @@ def edit_user(request, num: int):
         
         return JsonResponse({"form": form_json, "token": token}, status=200)
     parser = multipartparser.MultiPartParser(request.META, request, request.upload_handlers)
+
     data, files = parser.parse()
+
     
     updated_fields = {}
-
-    # Check for changes in fields
-    print(data)
-    for field in ['first_name', 'last_name', 'email', 'username']:
-        if field in data and data[field] != getattr(user, field):
-            if field in ['email', 'username']:
-                if AppUser.objects.filter(**{field: data[field]}).exclude(pk=user.pk).exists():
-                    return JsonResponse({"status": "error", "message": f"El {field} ya está en uso"}, status=400)
+    
+    for field in AppUser.updatable_atts:
+        if (field in data) and (field != None) and (field != '') and (getattr(user, field) != data[field]):
             updated_fields[field] = data[field]
+    
+    try:
+        updated_relations = {}
+        for field in AppUser.updatable_relations:
+            if (field in data) and (data[field] != None) and (data[field] != '') and (getattr(user, f'{field}_id') != data[field]):
+                updated_relations[field] = data[field]
+                
+        user_update = UserUpdate(**updated_fields, **updated_relations)
+        
+        for field, value in user_update:
+            if value == None:
+                continue
+            setattr(user, field, value)
+            
+        user.updated_by = request.user
+        user.save()
+        
+        return JsonResponse({"status": "success", "title": "Éxito", "message": "Usuario actualizado correctamente", "updated_fields": updated_fields}, status=200)
+    
+    except ValidationError as err:
+        
+        # print(err.json())
 
-    # Handle password changes
-    password1 = data.get('password1', '').strip()
-    password2 = data.get('password2', '').strip()
-    if password1 or password2:
-        if password1 != password2:
-            return JsonResponse({"status": "error", "message": "Las contraseñas no coinciden"}, status=400)
-        if len(password1) < 8:
-            return JsonResponse({"status": "error", "message": "La contraseña debe tener al menos 8 caracteres"}, status=400)
-        user.set_password(password1)
-        updated_fields['password'] = '******'
+        error_dict = {}
+        print(err.errors())
+        print(err)
+        
+        custom_errors = {
+            'value is not a valid email address: An email address must have an @-sign.': 'El correo debe de tener un "@"',
+            'value is not a valid email address: There must be something after the @-sign.': 'El correo debe de tener algo despues del "@"',
+            'value is not a valid email address: The part after the @-sign is not valid. It should have a period.': 'El correo debe de tener un "." despues del "@"',
+            'value is not a valid email address: An email address cannot end with a period.': 'El correo no puede terminar con un "."'
+            
+        }
+        
+        for error in err.errors():
+            msg = error['msg']
+            error_dict[error['loc'][0]] = [custom_errors[msg]] if msg in custom_errors else [msg]
+            print(error)
 
-    # Validate and assign role
-    role = data.get('role', '').strip()
-    if role and role != str(user.role.id):  # Compare role ID as string
-        try:
-            new_role = UserRole.objects.get(pk=role)
-            user.role = new_role
-            updated_fields['role'] = new_role.name
-        except UserRole.DoesNotExist:
-            return JsonResponse({"status": "error", "message": "El rol proporcionado no es válido"}, status=400)
+        custom_errors = {
+           "string_too_short": "El campo no puede tener menos de {min_length} caracteres",
+           "string_too_long": "El campo no puede tener mas de {max_length} caracteres"
+        }
 
-    # Update user fields
-    for field, value in updated_fields.items():
-        setattr(user, field, value)
-    user.updated_by = request.user
-    user.save()
+        for error in err.errors():
+            msg = custom_errors.get(error['type'])
+            ctx = error.get('ctx')
+            print(f'Message: {msg} | Context: {ctx} | Error: {error}')
+            
+            if msg:
+                error_dict[error['loc'][0]] = [msg.format(**ctx) if ctx else msg]
+        
+        print(error_dict)
+        
+        return JsonResponse({"status": "error", "data": error_dict}, status=400)    
+    except Exception as err:
+        print(err)
+        return JsonResponse({"status": "error"}, status=500)
+        
+    
+    return JsonResponse({"status": "error"})
+    # # Check for changes in fields
+    # print(data)
+    # for field in ['first_name', 'last_name', 'email', 'username']:
+    #     if field in data and data[field] != getattr(user, field):
+    #         if field in ['email', 'username']:
+    #             if AppUser.objects.filter(**{field: data[field]}).exclude(pk=user.pk).exists():
+    #                 return JsonResponse({"status": "error", "message": f"El {field} ya está en uso"}, status=400)
+    #         updated_fields[field] = data[field]
 
-    return JsonResponse({"status": "success", "message": "Usuario actualizado correctamente", "updated_fields": updated_fields}, status=200)
+    # # Handle password changes
+    # password1 = data.get('password1', '').strip()
+    # password2 = data.get('password2', '').strip()
+    # if password1 or password2:
+    #     if password1 != password2:
+    #         return JsonResponse({"status": "error", "message": "Las contraseñas no coinciden"}, status=400)
+    #     if len(password1) < 8:
+    #         return JsonResponse({"status": "error", "message": "La contraseña debe tener al menos 8 caracteres"}, status=400)
+    #     user.set_password(password1)
+    #     updated_fields['password'] = '******'
+
+    # # Validate and assign role
+    # role = data.get('role', '').strip()
+    # print(role)
+    # if role and role != str(user.role.id):  # Compare role ID as string
+    #     try:
+    #         new_role = UserRole.objects.get(pk=role)
+    #         user.role = new_role
+    #         updated_fields['role'] = new_role.name
+    #     except UserRole.DoesNotExist:
+    #         return JsonResponse({"status": "error", "message": "El rol proporcionado no es válido"}, status=400)
+
+    # # Update user fields
+    # for field, value in updated_fields.items():
+    #     setattr(user, field, value)
+    # user.updated_by = request.user
+    # user.save()
+
+    # return JsonResponse({"status": "success", "message": "Usuario actualizado correctamente", "updated_fields": updated_fields}, status=200)
 
 @csrf_exempt
 @admin_required
@@ -184,14 +253,12 @@ def get_users(request):
     
     match(request.method):
         case 'GET':
-            users = AppUser.undeleted_objects.all()
+            users = AppUser.undeleted_objects.all().order_by('created_at')
             # --- Search ---
             search_term = request.GET.get('search', None)
+            print(search_term)
             if search_term:
-                q_objects = Q()
-                for att in AppUser.public_atts:
-                    q_objects |= Q(**{f'{att}__icontains': search_term})
-                users = users.filter(q_objects)
+                users = users.filter(username=search_term)
 
             # --- Filtering ---
             for field_name in AppUser.public_atts:

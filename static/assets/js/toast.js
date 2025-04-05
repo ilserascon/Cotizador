@@ -32,6 +32,10 @@ function showToast(title, content, type) {
   const toastElement = document.getElementById(id)
   const toastBootstrap = bootstrap.Toast.getOrCreateInstance(toastElement)
   toastBootstrap.show()
+
+  setTimeout(() => {
+    toastBootstrap.hide()
+  }, 3000)
 }
 
 

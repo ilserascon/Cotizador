@@ -1,5 +1,5 @@
-async function getUsers(page){
-  const response = await fetch(`/auth/get-users?page=${page}`)
+async function getUsers(page=1, search=''){
+  const response = await fetch(`/auth/get-users?page=${page}&search=${search}`)
 
   try {
     const json = await response.json()

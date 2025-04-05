@@ -1,11 +1,11 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from utils.soft_delete import SoftDeleteModel
-
+from .constants import USER_ROLE_NAME_MAX_LENGTH
 
 
 class UserRole(models.Model):
-  name = models.CharField(max_length=50, unique=True)
+  name = models.CharField(max_length=USER_ROLE_NAME_MAX_LENGTH, unique=True)
   
   class Meta:
     db_table = 'user_role'
@@ -20,6 +20,8 @@ class UserRole(models.Model):
 class AppUser(AbstractUser, SoftDeleteModel):
   public_atts = ['id','username', 'first_name', 'last_name', 'email', 'role', 'created_at', 'updated_at', 'created_by', 'updated_by']
   displayname_mapping = ['Id','Nombre de usuario', 'Nombre', 'Apellido', 'Correo electrónico', 'Tipo', 'Creado el', 'Actualizado el', 'Creado por', 'Actualizado por']
+  updatable_atts = ['username', 'first_name', 'last_name', 'email', 'password']
+  updatable_relations = ['role']
 
   role = models.ForeignKey(UserRole, on_delete=models.PROTECT, null=True, blank=True)
   created_at = models.DateTimeField(auto_now_add=True)

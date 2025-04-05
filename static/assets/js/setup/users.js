@@ -15,7 +15,20 @@ else
   showToast('Error', 'Hubo un error al cargar la página.', 'error')
 
 let page = 1
+let search = ''
 
+const searchUser = document.getElementById('search-user')
+let timeoutId = 0
+searchUser.addEventListener('keyup', (e) => {
+  clearTimeout(timeoutId)
+  console.log('Changing')
+
+  search = e.target.value
+
+  timeoutId = setTimeout(() => {
+    refreshUsersTable()
+  }, 500)
+})
 
 function createPaginationItem(content, number, active, disabled) {
   const li = document.createElement('li')
@@ -96,10 +109,11 @@ const actionsDropdown = (id) => {
 };
 
 
+
 function refreshUsersTable(){
   usersTable.innerHTML = ''
   usersTablePagination.innerHTML = ''
-  getUsers(page)
+  getUsers(page, search)
   .then(response => {
     const headers = response.headers
     const data = response.data 

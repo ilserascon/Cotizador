@@ -33,7 +33,15 @@ function formEventListener(endpoint, form, method = 'POST', extraData = {}, afte
         switch (json.status) {
           case 'error':
             const fieldsWithError = Object.keys(json.data)
+            const inputsInForm = form.querySelectorAll('input')
 
+            for (const input of inputsInForm) {
+              if (input.classList.contains('is-invalid')) {
+                input.classList.remove('is-invalid')
+              }
+            
+            }
+            
             for (const fieldWithError of fieldsWithError) {
               const inputField = form.querySelector(`[name="${fieldWithError}"]`)
 
@@ -369,7 +377,6 @@ function bindServerForm(endpoint, container, afterSubmit, method = 'POST', extra
   const token = getCSRFToken()
   const url = new URL(window.location)
   url.pathname = endpoint
-  console.log(url.toString())
   fetch(url, {
     method: 'GET',
     headers: {
