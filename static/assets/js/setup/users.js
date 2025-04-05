@@ -3,6 +3,28 @@ const editUserFormContainer = document.getElementById('edit-user-form-container'
 const usersTable = document.getElementById('users-table')
 const usersTablePagination = document.getElementById('users-table-pagination')
 const createUserFormContainer = document.getElementById('create-user-form-container')
+const deleteUserModal = document.getElementById('delete-user-modal')
+const acceptDeleteUserBtn = document.getElementById('accept-delete-user')
+
+const deleteBootstrapModal = new bootstrap.Modal(deleteUserModal)
+
+acceptDeleteUserBtn.addEventListener('click', e => {
+  e.preventDefault()
+  const id = deleteUserModal.getAttribute('data-id')
+  deleteUser(id)
+    .then(response => {
+      if (response.status == 'success') {
+        deleteBootstrapModal.hide()
+        showToast('Éxito', response.message, 'success')
+        deleteUserModal.removeAttribute('data-id')
+      } else {
+        showToast('Error', response.message, 'error')
+      }
+      refreshUsersTable()
+    })
+    
+
+})
 
 function getCSRFToken() {
   return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
@@ -94,6 +116,15 @@ const actionsDropdown = (id) => {
   const deleteItem = document.createElement('li');
   const deleteButton = document.createElement('button');
   deleteButton.classList.add('dropdown-item');
+
+
+
+  deleteButton.addEventListener('click', e => {
+    e.preventDefault()
+    deleteBootstrapModal.show()
+    deleteUserModal.setAttribute('data-id', id)
+  })
+
   deleteButton.innerHTML = `
     <span class="text-danger">Eliminar</span>
     <span class="pc-micon"><i data-feather="user-plus"></i></span>`;

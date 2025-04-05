@@ -121,12 +121,12 @@ def create_user(request):
 
 @csrf_exempt
 @admin_required
-def edit_user(request, num: int):
+def edit_user(request, id: int):
     if not request.method in ['GET', 'PUT']:
         return HttpResponseNotAllowed(['GET','PUT'])
 
     try:
-        user = AppUser.undeleted_objects.get(pk=num)
+        user = AppUser.undeleted_objects.get(pk=id)
     except AppUser.DoesNotExist:
         return JsonResponse({"status": "error", "message": "Usuario no encontrado"}, status=404)
     
@@ -207,46 +207,6 @@ def edit_user(request, num: int):
         return JsonResponse({"status": "error"}, status=500)
         
     
-    return JsonResponse({"status": "error"})
-    # # Check for changes in fields
-    # print(data)
-    # for field in ['first_name', 'last_name', 'email', 'username']:
-    #     if field in data and data[field] != getattr(user, field):
-    #         if field in ['email', 'username']:
-    #             if AppUser.objects.filter(**{field: data[field]}).exclude(pk=user.pk).exists():
-    #                 return JsonResponse({"status": "error", "message": f"El {field} ya está en uso"}, status=400)
-    #         updated_fields[field] = data[field]
-
-    # # Handle password changes
-    # password1 = data.get('password1', '').strip()
-    # password2 = data.get('password2', '').strip()
-    # if password1 or password2:
-    #     if password1 != password2:
-    #         return JsonResponse({"status": "error", "message": "Las contraseñas no coinciden"}, status=400)
-    #     if len(password1) < 8:
-    #         return JsonResponse({"status": "error", "message": "La contraseña debe tener al menos 8 caracteres"}, status=400)
-    #     user.set_password(password1)
-    #     updated_fields['password'] = '******'
-
-    # # Validate and assign role
-    # role = data.get('role', '').strip()
-    # print(role)
-    # if role and role != str(user.role.id):  # Compare role ID as string
-    #     try:
-    #         new_role = UserRole.objects.get(pk=role)
-    #         user.role = new_role
-    #         updated_fields['role'] = new_role.name
-    #     except UserRole.DoesNotExist:
-    #         return JsonResponse({"status": "error", "message": "El rol proporcionado no es válido"}, status=400)
-
-    # # Update user fields
-    # for field, value in updated_fields.items():
-    #     setattr(user, field, value)
-    # user.updated_by = request.user
-    # user.save()
-
-    # return JsonResponse({"status": "success", "message": "Usuario actualizado correctamente", "updated_fields": updated_fields}, status=200)
-
 @csrf_exempt
 @admin_required
 def get_users(request):
@@ -300,3 +260,23 @@ def get_users(request):
             
         case _:
             return HttpResponseNotAllowed(['GET'])
+
+@csrf_exempt
+@admin_required
+def delete_user(request, id: int):
+    if not request.method == 'DELETE':
+        return HttpResponseNotAllowed(['DELETE'])
+    
+    user = AppUser.undeleted_objects.get(pk=id)
+
+    if not user:
+        return JsonResponse({"status": "error", "message": "Usuario no encontrado"}, status=404)
+
+    try:
+        user.soft_delete()
+    except Exception as err:
+        print(err)
+        return JsonResponse({"status":"error", "message": "No se pudo eliminar el usuario"}, status=500)
+    
+    return JsonResponse({"status": "success", "message": "Usuario eliminado correctamente"})
+    

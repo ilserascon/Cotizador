@@ -72,7 +72,7 @@ function formEventListener(endpoint, form, method = 'POST', extraData = {}, afte
               }
             }
 
-            showToast(json.title, json.message, 'success')
+            showToast(json.title || 'Éxito', json.message || 'Operación realizada con éxito', 'success')
 
             form.reset()
 
