@@ -142,6 +142,34 @@ def edit_user(request, id: int):
 
     
     updated_fields = {}
+
+    #Check passwords
+    password1 = data.get('password1')
+    password2 = data.get('password2')
+
+    if (password1 and not password2) or (password2 and not password1):
+        return JsonResponse({
+                "status":"error",
+                "data":{
+                    "password1":
+                        ["Las contraseñas deben de coincidir"],
+                    "password2": 
+                        ["Las contraseñas deben de coincidir"]
+                }},
+                status=400
+            )
+    if (password1 and password2) and (password1 != password2):
+        return JsonResponse({
+                "status":"error",
+                "data":{
+                    "password1": 
+                        ["Las contraseñas deben de coincidir"],
+                    "password2": 
+                        ["Las contraseñas deben de coincidir"]
+                }},
+                status=400
+            )
+    
     
     for field in AppUser.updatable_atts:
         if (field in data) and (field != None) and (field != '') and (getattr(user, field) != data[field]):
@@ -152,7 +180,11 @@ def edit_user(request, id: int):
         for field in AppUser.updatable_relations:
             if (field in data) and (data[field] != None) and (data[field] != '') and (getattr(user, f'{field}_id') != data[field]):
                 updated_relations[field] = data[field]
-                
+        
+        if password1:
+            updated_fields['password'] = password1
+                    
+        
         user_update = UserUpdate(**updated_fields, **updated_relations)
         
         for field, value in user_update:
@@ -194,12 +226,15 @@ def edit_user(request, id: int):
         for error in err.errors():
             msg = custom_errors.get(error['type'])
             ctx = error.get('ctx')
-            print(f'Message: {msg} | Context: {ctx} | Error: {error}')
             
             if msg:
                 error_dict[error['loc'][0]] = [msg.format(**ctx) if ctx else msg]
         
-        print(error_dict)
+        if 'password' in error_dict:
+            error_dict['password1'] = error_dict['password']
+            error_dict['password2'] = error_dict['password']
+            del error_dict['password']
+
         
         return JsonResponse({"status": "error", "data": error_dict}, status=400)    
     except Exception as err:
@@ -218,7 +253,7 @@ def get_users(request):
             search_term = request.GET.get('search', None)
             print(search_term)
             if search_term:
-                users = users.filter(username=search_term)
+                users = users.filter(username__icontains=search_term)
 
             # --- Filtering ---
             for field_name in AppUser.public_atts:
